@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parking Lot App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+            margin: 0;
+        }
+        h1 {
+            text-align: center;
+            font-size: 24px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .parking-status {
+            margin-bottom: 20px;
+            font-size: 18px;
+            text-align: center;
+        }
+        input[type="text"], input[type="date"] {
+            width: calc(100% - 22px);
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+        button.remove {
+            background-color: #dc3545;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            padding: 8px;
+            background: #ddd;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+
+        /* Parking lot grid */
+        .parking-lot {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 2 spaces per row on mobile */
+            grid-gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        @media (min-width: 600px) {
+            .parking-lot {
+                grid-template-columns: repeat(5, 1fr); /* 5 spaces per row for wider screens */
+            }
+        }
+
+        .parking-space {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #28a745; /* Green for available */
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            height: 80px; /* Larger height for touch-friendly UI */
+            border-radius: 5px;
+            cursor: pointer;
+            user-select: none; /* Prevent text selection on double-tap */
+            transition: background-color 0.2s;
+        }
+        .parking-space.occupied {
+            background-color: #dc3545; /* Red for occupied */
+        }
+        .parking-space.selected {
+            background-color: #ffc107; /* Yellow for selected */
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Parking Lot</h1>
+    <div class="container">
+        <div class="parking-status">
+            <strong>Available Spots:</strong> <span id="available-spots">10</span>/10
+        </div>
+
+        <!-- Parking Lot Grid -->
+        <div class="parking-lot" id="parking-lot">
+            <!-- Parking spaces will be generated here -->
+        </div>
+
+        <input type="text" id="car-number" placeholder="Enter License Plate">
+        
+        <!-- Date Inputs -->
+        <input type="date" id="start-date" placeholder="Start Date">
+        <input type="date" id="end-date" placeholder="End Date">
+
+        <button onclick="parkCar()">Park Car</button>
+        <button class="remove" onclick="removeCar()">Remove Car</button>
+
+        <h3>Parked Cars:</h3>
+        <ul id="parked-cars">
+            <!-- Parked cars will appear here -->
+        </ul>
+    </div>
+
+    <script>
+        let totalSpots = 10;
+        let parkedCars = {};
+        let selectedSpot = null; // Track selected parking spot
+
+        const parkingLotElement = document.getElementById("parking-lot");
+
+        // Generate parking spaces
+        for (let i = 1; i <= totalSpots; i++) {
+            const space = document.createElement('div');
+            space.classList.add('parking-space');
+            space.setAttribute('data-spot', i);
+            space.innerText = `Spot ${i}`;
+            space.addEventListener('click', function() {
+                selectSpot(i); // When a spot is clicked, select it
+            });
+            parkingLotElement.appendChild(space);
+        }
+
+        // Update the available spots
+        function updateAvailableSpots() {
+            document.getElementById("available-spots").innerText = totalSpots - Object.keys(parkedCars).length;
+        }
+
+        // Function to select a parking spot
+        function selectSpot(spotNumber) {
+            // Deselect any previously selected spot
+            const previousSelected = document.querySelector('.parking-space.selected');
+            if (previousSelected) {
+                previousSelected.classList.remove('selected');
+            }
+
+            // Select the new spot
+            const selectedElement = document.querySelector(`.parking-space[data-spot="${spotNumber}"]`);
+            selectedElement.classList.add('selected');
+            selectedSpot = spotNumber; // Store the selected spot
+        }
+
+        // Function to park a car
+        function parkCar() {
+            const carNumber = document.getElementById("car-number").value.trim();
+            const startDate = document.getElementById("start-date").value;
+            const endDate = document.getElementById("end-date").value;
+
+            if (carNumber === "" || !selectedSpot || startDate === "" || endDate === "") {
+                alert("Please fill in all fields and select a parking spot.");
+                return;
+            }
+
+            if (parkedCars[carNumber]) {
+                alert("This car is already parked.");
+                return;
+            }
+
+            const spot = document.querySelector(`.parking-space[data-spot="${selectedSpot}"]`);
+
+            if (spot.classList.contains('occupied')) {
+                alert("This parking space is already occupied.");
+                return;
+            }
+
+            // Occupy the spot
+            spot.classList.add('occupied');
+            spot.classList.remove('selected'); // Remove the 'selected' state
+            parkedCars[carNumber] = {
+                spot: selectedSpot,
+                startDate: startDate,
+                endDate: endDate
+            }; // Store car details
+
+            selectedSpot = null; // Reset selected spot
+
+            displayParkedCars();
+            updateAvailableSpots();
+            clearForm();
+            checkExpiredParking(); // Check for expired parking immediately
+        }
+
+        // Function to remove a car
+        function removeCar() {
+            const carNumber = document.getElementById("car-number").value.trim();
+
+            if (carNumber === "") {
+                alert("Please enter a license plate number.");
+                return;
+            }
+
+            const carDetails = parkedCars[carNumber];
+            if (!carDetails) {
+                alert("Car not found in the parking lot.");
+                return;
+            }
+
+            const spot = document.querySelector(`.parking-space[data-spot="${carDetails.spot}"]`);
+            spot.classList.remove('occupied'); // Free the spot
+
+            delete parkedCars[carNumber]; // Remove car from parked list
+            displayParkedCars();
+            updateAvailableSpots();
+            clearForm();
+        }
+
+        // Function to clear input fields after parking or removing
+        function clearForm() {
+            document.getElementById("car-number").value = ""; // Clear input
+            document.getElementById("start-date").value = ""; // Clear start date
+            document.getElementById("end-date").value = ""; // Clear end date
+        }
+
+        // Function to display the parked cars
+        function displayParkedCars() {
+            const carList = document.getElementById("parked-cars");
+            carList.innerHTML = ""; // Clear the list
+            for (const car in parkedCars) {
+                const details = parkedCars[car];
+                const li = document.createElement("li");
+                li.innerText = `${car} - Spot ${details.spot} (From: ${details.startDate} To: ${details.endDate})`;
+                carList.appendChild(li);
+            }
+        }
+
+        // Function to check for expired parking
+        function checkExpiredParking() {
+            const currentDate = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD format
+            for (const car in parkedCars) {
+                const details = parkedCars[car];
+                if (details.endDate < currentDate) {
+                    // If the parking is expired
+                    const spot = document.querySelector(`.parking-space[data-spot="${details.spot}"]`);
+                    spot.classList.remove('occupied'); // Free the spot
+                    delete parkedCars[car]; // Remove the car from parked list
+                }
+            }
+            displayParkedCars(); // Update the displayed parked cars
+            updateAvailableSpots(); // Update available spots count
+        }
+
+        // Periodically check for expired parking every day (86400000 milliseconds)
+        setInterval(checkExpiredParking, 86400000);
+    </script>
+
+</body>
+</html>
